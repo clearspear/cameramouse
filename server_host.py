@@ -4,17 +4,15 @@
 import socket
 import sys
 
-print("hello world")
+HOST = "" #'127.0.0.1'
+PORT = 27519
 
 # Create a TCP/IP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # Bind the socket to the port
-server_address = ('localhost', 10000)
-print("Starting up on %s port %s" %server_address)
-sock.bind(server_address)
-
-# Listen for incoming connections
+print("Starting up on %s port %s" %(HOST, PORT))
+sock.bind((HOST, PORT))
 sock.listen(1)
 
 while True:
@@ -27,9 +25,9 @@ while True:
 
         # Receive the data in small chunks and retransmit it
         while True:
-            data = connection.recv(16)
-            print("Received '%s'" % data)
+            data = connection.recv(1024)
             if data:
+                print("Received '%s'" % data)
                 print("Sending data back to the client")
                 connection.sendall(data)
             else:
