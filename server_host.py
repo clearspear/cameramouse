@@ -14,16 +14,16 @@ s = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
 s.bind(('', PORT))
 s.listen(1)
 
-def get_random_direction():
+def get_random_command():
     r_num = random.randint(0, 4)
     if r_num == 0:
-        return "L"
+        return "L 100"
     elif r_num == 1:
-        return "R"
+        return "R 100"
     elif r_num == 2:
-        return "U"
+        return "U 100"
     else:
-        return "D"
+        return "D 100"
 
 while True:
 
@@ -34,7 +34,7 @@ while True:
 
     try: 
         while True:
-            data_send = get_random_direction()
+            data_send = get_random_command()
             print("Sending: %s" % data_send)
             connection.sendall(data_send)
             time.sleep(1)
