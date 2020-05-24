@@ -103,7 +103,7 @@ def main():
       for result in results:
           text_lines.append('score={:.2f}: {}'.format(result.score, labels.get(result.id, result.id)))
       print(' '.join(text_lines))
-      return generate_svg(src_size, text_lines)
+      return #generate_svg(src_size, text_lines)
 
     result = gstreamer.run_pipeline(user_callback,
                                     src_size=(640, 480),

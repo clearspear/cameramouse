@@ -36,8 +36,8 @@ class GstPipeline:
         self.condition = threading.Condition()
 
         self.pipeline = Gst.parse_launch(pipeline)
-        self.overlay = self.pipeline.get_by_name('overlay')
-        self.overlaysink = self.pipeline.get_by_name('overlaysink')
+        self.overlay = None #self.pipeline.get_by_name('overlay')
+        self.overlaysink = None #self.pipeline.get_by_name('overlaysink')
         appsink = self.pipeline.get_by_name('appsink')
         appsink.connect('new-sample', self.on_new_sample)
 
@@ -47,7 +47,7 @@ class GstPipeline:
         bus.connect('message', self.on_bus_message)
 
         # Set up a full screen window on Coral, no-op otherwise.
-        self.setup_window()
+        #self.setup_window()
 
     def run(self):
         # Start inference worker.
@@ -225,8 +225,9 @@ def run_pipeline(user_function,
         scale_caps = None
         PIPELINE += """ ! decodebin ! glupload ! tee name=t
             t. ! queue ! glfilterbin filter=glbox name=glbox ! {sink_caps} ! {sink_element}
-            t. ! queue ! glsvgoverlaysink name=overlaysink
         """
+        #    t. ! queue ! glsvgoverlaysink name=overlaysink
+        #"""
     else:
         scale = min(appsink_size[0] / src_size[0], appsink_size[1] / src_size[1])
         scale = tuple(int(x * scale) for x in src_size)
