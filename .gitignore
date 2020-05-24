@@ -1,2 +1,5 @@
 data/
+__pycache__/
+all_models/
 *.swp
+*.tflite
