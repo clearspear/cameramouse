@@ -204,40 +204,19 @@ def detectCoralDevBoard():
 def run_pipeline(user_function,
                  src_size,
                  appsink_size,
-                 videosrc='/dev/video1',
+                 videosrc='/dev/video0',
                  videofmt='raw'):
-    if videofmt == 'h264':
-        SRC_CAPS = 'video/x-h264,width={width},height={height},framerate=30/1'
-    elif videofmt == 'jpeg':
-        SRC_CAPS = 'image/jpeg,width={width},height={height},framerate=30/1'
-    else:
-        SRC_CAPS = 'video/x-raw,width={width},height={height},framerate=30/1'
-    if videosrc.startswith('/dev/video'):
-        PIPELINE = 'v4l2src device=%s ! {src_caps}'%videosrc
-    else:
-        demux =  'avidemux' if videosrc.endswith('avi') else 'qtdemux'
-        PIPELINE = """filesrc location=%s ! %s name=demux  demux.video_0
-                    ! queue ! decodebin  ! videorate
-                    ! videoconvert n-threads=4 ! videoscale n-threads=4
-                    ! {src_caps} ! {leaky_q} """ % (videosrc, demux)
 
-    if detectCoralDevBoard():
-        scale_caps = None
-        PIPELINE += """ ! decodebin ! glupload ! tee name=t
-            t. ! queue ! glfilterbin filter=glbox name=glbox ! {sink_caps} ! {sink_element}
-        """
-        #    t. ! queue ! glsvgoverlaysink name=overlaysink
-        #"""
-    else:
-        scale = min(appsink_size[0] / src_size[0], appsink_size[1] / src_size[1])
-        scale = tuple(int(x * scale) for x in src_size)
-        scale_caps = 'video/x-raw,width={width},height={height}'.format(width=scale[0], height=scale[1])
-        PIPELINE += """ ! tee name=t
-            t. ! {leaky_q} ! videoconvert ! videoscale ! {scale_caps} ! videobox name=box autocrop=true
-               ! {sink_caps} ! {sink_element}
-            t. ! {leaky_q} ! videoconvert
-               ! rsvgoverlay name=overlay ! videoconvert ! ximagesink sync=false
-            """
+    SRC_CAPS = 'video/x-raw,width={width},height={height},framerate=30/1'
+    PIPELINE = 'v4l2src device=%s ! {src_caps}'%videosrc
+
+    # Coral board
+    scale_caps = None
+    PIPELINE += """ ! decodebin ! glupload ! tee name=t
+        t. ! queue ! glfilterbin filter=glbox name=glbox ! {sink_caps} ! {sink_element}
+    """
+    #    t. ! queue ! glsvgoverlaysink name=overlaysink
+    #"""
 
     SINK_ELEMENT = 'appsink name=appsink emit-signals=true max-buffers=1 drop=true'
     SINK_CAPS = 'video/x-raw,format=RGB,width={width},height={height}'

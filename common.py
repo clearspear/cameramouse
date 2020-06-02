@@ -22,14 +22,12 @@ import svgwrite
 import tflite_runtime.interpreter as tflite
 import time
 
-EDGETPU_SHARED_LIB = 'libedgetpu.so.1'
-
 def make_interpreter(model_file):
     model_file, *device = model_file.split('@')
     return tflite.Interpreter(
       model_path=model_file,
       experimental_delegates=[
-          tflite.load_delegate(EDGETPU_SHARED_LIB,
+          tflite.load_delegate('libedgetpu.so.1',
                                {'device': device[0]} if device else {})
       ])
 

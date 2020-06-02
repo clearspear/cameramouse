@@ -31,10 +31,13 @@ import os
 import re
 import svgwrite
 import time
+from gi.repository import Gst
+import matplotlib.image
 
 Category = collections.namedtuple('Category', ['id', 'score'])
 
 def load_labels(path):
+    print(path)
     p = re.compile(r'\s*(\d+)(.+)')
     with open(path, 'r', encoding='utf-8') as f:
        lines = (p.match(line).groups() for line in f.readlines())
@@ -59,9 +62,9 @@ def get_output(interpreter, top_k, score_threshold):
     return sorted(categories, key=operator.itemgetter(1), reverse=True)
 
 def main():
-    default_model_dir = '../'
-    default_model = 'partialquantized.tflite'
-    default_labels = 'flower_labels.txt'
+    default_model_dir = ''
+    default_model = '/home/mendel/all_models/mobilenet_v2_1.0_224_quant_edgetpu.tflite'
+    default_labels = '/home/mendel/all_models/imagenet_labels.txt'
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', help='.tflite model path',
                         default=os.path.join(default_model_dir,default_model))
@@ -71,11 +74,6 @@ def main():
                         help='number of categories with highest score to display')
     parser.add_argument('--threshold', type=float, default=0.1,
                         help='classifier score threshold')
-    parser.add_argument('--videosrc', help='Which video source to use. ',
-                        default='/dev/video0')
-    parser.add_argument('--videofmt', help='Input video format.',
-                        default='raw',
-                        choices=['raw', 'h264', 'jpeg'])
     args = parser.parse_args()
 
     print('Loading {} with {} labels.'.format(args.model, args.labels))
@@ -89,6 +87,28 @@ def main():
     fps_counter = common.avg_fps_counter(30)
 
     def user_callback(input_tensor, src_size, inference_box):
+      print(input_tensor)
+      print(src_size)
+      print(inference_box)
+
+      buffer = input_tensor
+      success, map_info = buffer.map(Gst.MapFlags.READ)
+      if not success:
+          raise RuntimeError("Could not map Buffer data!")
+
+      nparray = np.ndarray(
+              shape=(h, w, 3),
+              dtype=np.uint8,
+              buffer=map_info.data)
+      nparray = nparray[28:-28,:,:] # Trim black from top and bottom
+      print(nparray.shape)
+      # nparray contains the image now...
+
+    
+      output_details = interpreter.get_output_details()
+      print(output_details)
+
+
       nonlocal fps_counter
       start_time = time.monotonic()
       common.set_input(interpreter, input_tensor)
@@ -108,9 +128,7 @@ def main():
 
     result = gstreamer.run_pipeline(user_callback,
                                     src_size=(640, 480),
-                                    appsink_size=inference_size,
-                                    videosrc=args.videosrc,
-                                    videofmt=args.videofmt)
+                                    appsink_size=inference_size)
 
 if __name__ == '__main__':
     main()
