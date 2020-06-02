@@ -50,6 +50,7 @@ def generate_svg(size, text_lines):
 def get_output(interpreter, top_k, score_threshold):
     """Returns no more than top_k categories with score >= score_threshold."""
     scores = common.output_tensor(interpreter, 0)
+    print(scores)
     categories = [
         Category(i, scores[i])
         for i in np.argpartition(scores, -top_k)[-top_k:]
@@ -58,9 +59,9 @@ def get_output(interpreter, top_k, score_threshold):
     return sorted(categories, key=operator.itemgetter(1), reverse=True)
 
 def main():
-    default_model_dir = 'all_models'
-    default_model = 'mobilenet_v2_1.0_224_quant_edgetpu.tflite'
-    default_labels = 'imagenet_labels.txt'
+    default_model_dir = '../'
+    default_model = 'partialquantized.tflite'
+    default_labels = 'flower_labels.txt'
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', help='.tflite model path',
                         default=os.path.join(default_model_dir,default_model))
