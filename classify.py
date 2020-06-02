@@ -12,13 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A demo which runs object classification on camera frames.
+# Modified by Sicheng Zeng
 
-Run default object detection:
+"""A demo which runs a tflite model on camera frames.
 python3 classify.py
-
-Choose different camera and input encoding
-python3 classify.py --videosrc /dev/video1 --videofmt jpeg
 """
 
 import argparse
@@ -51,20 +48,22 @@ def generate_svg(size, text_lines):
     return dwg.tostring()
 
 def get_output(interpreter):
-    """Returns no more than top_k categories with score >= score_threshold."""
-    top_k = 3
-    score_threshold = 0.1
+    boxes = common.output_tensor(interpreter, 0)
+    classes = common.output_tensor(interpreter, 1)
+    scores = common.output_tensor(interpreter, 2)
+    count = int(common.output_tensor(interpreter, 3))
+    print(boxes)
+    print(classes)
+    print(scores)
+    print(count)
 
-    scores = common.output_tensor(interpreter, 0)
-    categories = [
-        Category(i, scores[i])
-        for i in np.argpartition(scores, -top_k)[-top_k:]
-        if scores[i] >= score_threshold
-    ]
-    return sorted(categories, key=operator.itemgetter(1), reverse=True)
+    # We have the results... but now we need them to be the right results.
+
+    return
 
 def main():
-    model_path = '/home/mendel/all_models/mobilenet_v2_1.0_224_quant_edgetpu.tflite'
+    #model_path = '/home/mendel/all_models/mobilenet_v2_1.0_224_quant_edgetpu.tflite'
+    model_path = '/home/mendel/all_models/mobilenet_ssd_v1_coco_quant_postprocess_edgetpu.tflite'
     labels_path = '/home/mendel/all_models/imagenet_labels.txt'
 
     print('Loading {} with {} labels.'.format(model_path, labels_path))
@@ -78,27 +77,20 @@ def main():
     fps_counter = common.avg_fps_counter(30)
 
     def user_callback(input_tensor, src_size, inference_box):
-      print(input_tensor)
-      print(src_size)
-      print(inference_box)
 
       buffer = input_tensor
       success, map_info = buffer.map(Gst.MapFlags.READ)
       if not success:
           raise RuntimeError("Could not map Buffer data!")
 
-      nparray = np.ndarray(
-              shape=(h, w, 3),
-              dtype=np.uint8,
-              buffer=map_info.data)
-      nparray = nparray[28:-28,:,:] # Trim black from top and bottom
-      print(nparray.shape)
-      # nparray contains the image now...
+      # Get image as nparray
+      #nparray = np.ndarray(
+      #        shape=(h, w, 3),
+      #        dtype=np.uint8,
+      #        buffer=map_info.data)
+      #nparray = nparray[28:-28,:,:] # Trim black from top and bottom
 
-    
-      output_details = interpreter.get_output_details()
-      print(output_details)
-
+      #output_details = interpreter.get_output_details()
 
       nonlocal fps_counter
       start_time = time.monotonic()
@@ -107,15 +99,7 @@ def main():
       # For larger input image sizes, use the edgetpu.classification.engine for better performance
       results = get_output(interpreter)
       end_time = time.monotonic()
-      text_lines = [
-          ' ',
-          'Inference: {:.2f} ms'.format((end_time - start_time) * 1000),
-          'FPS: {} fps'.format(round(next(fps_counter))),
-      ]
-      for result in results:
-          text_lines.append('score={:.2f}: {}'.format(result.score, labels.get(result.id, result.id)))
-      print(' '.join(text_lines))
-      return #generate_svg(src_size, text_lines)
+      return
 
     result = gstreamer.run_pipeline(user_callback,
                                     src_size=(640, 480),
