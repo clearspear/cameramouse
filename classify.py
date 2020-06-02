@@ -50,10 +50,12 @@ def generate_svg(size, text_lines):
       dwg.add(dwg.text(line, insert=(10, y*20), fill='white', font_size='20'))
     return dwg.tostring()
 
-def get_output(interpreter, top_k, score_threshold):
+def get_output(interpreter):
     """Returns no more than top_k categories with score >= score_threshold."""
+    top_k = 3
+    score_threshold = 0.1
+
     scores = common.output_tensor(interpreter, 0)
-    print(scores)
     categories = [
         Category(i, scores[i])
         for i in np.argpartition(scores, -top_k)[-top_k:]
@@ -62,24 +64,13 @@ def get_output(interpreter, top_k, score_threshold):
     return sorted(categories, key=operator.itemgetter(1), reverse=True)
 
 def main():
-    default_model_dir = ''
-    default_model = '/home/mendel/all_models/mobilenet_v2_1.0_224_quant_edgetpu.tflite'
-    default_labels = '/home/mendel/all_models/imagenet_labels.txt'
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model', help='.tflite model path',
-                        default=os.path.join(default_model_dir,default_model))
-    parser.add_argument('--labels', help='label file path',
-                        default=os.path.join(default_model_dir, default_labels))
-    parser.add_argument('--top_k', type=int, default=3,
-                        help='number of categories with highest score to display')
-    parser.add_argument('--threshold', type=float, default=0.1,
-                        help='classifier score threshold')
-    args = parser.parse_args()
+    model_path = '/home/mendel/all_models/mobilenet_v2_1.0_224_quant_edgetpu.tflite'
+    labels_path = '/home/mendel/all_models/imagenet_labels.txt'
 
-    print('Loading {} with {} labels.'.format(args.model, args.labels))
-    interpreter = common.make_interpreter(args.model)
+    print('Loading {} with {} labels.'.format(model_path, labels_path))
+    interpreter = common.make_interpreter(model_path)
     interpreter.allocate_tensors()
-    labels = load_labels(args.labels)
+    labels = load_labels(labels_path)
 
     w, h, _  = common.input_image_size(interpreter)
     inference_size = (w, h)
@@ -114,7 +105,7 @@ def main():
       common.set_input(interpreter, input_tensor)
       interpreter.invoke()
       # For larger input image sizes, use the edgetpu.classification.engine for better performance
-      results = get_output(interpreter, args.top_k, args.threshold)
+      results = get_output(interpreter)
       end_time = time.monotonic()
       text_lines = [
           ' ',
