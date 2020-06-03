@@ -28,17 +28,8 @@ import os
 import re
 import svgwrite
 import time
-from gi.repository import Gst
-import matplotlib.image
 
 Category = collections.namedtuple('Category', ['id', 'score'])
-
-def load_labels(path):
-    print(path)
-    p = re.compile(r'\s*(\d+)(.+)')
-    with open(path, 'r', encoding='utf-8') as f:
-       lines = (p.match(line).groups() for line in f.readlines())
-       return {int(num): text.strip() for num, text in lines}
 
 def generate_svg(size, text_lines):
     dwg = svgwrite.Drawing('', size=size)
@@ -54,10 +45,6 @@ def get_output(interpreter):
     classes = common.output_tensor(interpreter, 1)
     scores = common.output_tensor(interpreter, 2)
     count = int(common.output_tensor(interpreter, 3))
-    print(boxes)
-    print(classes)
-    print(scores)
-    print(count)
 
     hand_detections = []
     for i in range(count):
@@ -68,15 +55,11 @@ def get_output(interpreter):
     return
 
 def main():
-    #model_path = '/home/mendel/all_models/mobilenet_v2_1.0_224_quant_edgetpu.tflite'
-    #model_path = '/home/mendel/all_models/mobilenet_ssd_v1_coco_quant_postprocess_edgetpu.tflite'
     model_path = '/home/mendel/handdetection_ssdmobilenetv1.tflite'
-    labels_path = '/home/mendel/all_models/imagenet_labels.txt'
 
-    print('Loading {} with {} labels.'.format(model_path, labels_path))
+    print('Loading {} with {} labels.'.format(model_path, ""))
     interpreter = common.make_interpreter(model_path)
     interpreter.allocate_tensors()
-    labels = load_labels(labels_path)
 
     w, h, _  = common.input_image_size(interpreter)
     inference_size = (w, h)
@@ -86,20 +69,6 @@ def main():
     print(inference_size)
 
     def user_callback(input_tensor, src_size, inference_box):
-
-      buffer = input_tensor
-      success, map_info = buffer.map(Gst.MapFlags.READ)
-      if not success:
-          raise RuntimeError("Could not map Buffer data!")
-
-      # Get image as nparray
-      #nparray = np.ndarray(
-      #        shape=(h, w, 3),
-      #        dtype=np.uint8,
-      #        buffer=map_info.data)
-      #nparray = nparray[28:-28,:,:] # Trim black from top and bottom
-
-      #output_details = interpreter.get_output_details()
 
       nonlocal fps_counter
       start_time = time.monotonic()
