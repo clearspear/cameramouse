@@ -48,6 +48,8 @@ def generate_svg(size, text_lines):
     return dwg.tostring()
 
 def get_output(interpreter):
+    threshold = .6
+
     boxes = common.output_tensor(interpreter, 0)
     classes = common.output_tensor(interpreter, 1)
     scores = common.output_tensor(interpreter, 2)
@@ -57,13 +59,18 @@ def get_output(interpreter):
     print(scores)
     print(count)
 
-    # We have the results... but now we need them to be the right results.
+    hand_detections = []
+    for i in range(count):
+        if scores[i] > threshold:
+            hand_detections.append(boxes[i])
+    print(hand_detections)
 
     return
 
 def main():
     #model_path = '/home/mendel/all_models/mobilenet_v2_1.0_224_quant_edgetpu.tflite'
-    model_path = '/home/mendel/all_models/mobilenet_ssd_v1_coco_quant_postprocess_edgetpu.tflite'
+    #model_path = '/home/mendel/all_models/mobilenet_ssd_v1_coco_quant_postprocess_edgetpu.tflite'
+    model_path = '/home/mendel/handdetection_ssdmobilenetv1.tflite'
     labels_path = '/home/mendel/all_models/imagenet_labels.txt'
 
     print('Loading {} with {} labels.'.format(model_path, labels_path))
@@ -75,6 +82,8 @@ def main():
     inference_size = (w, h)
     # Average fps over last 30 frames.
     fps_counter = common.avg_fps_counter(30)
+
+    print(inference_size)
 
     def user_callback(input_tensor, src_size, inference_box):
 
