@@ -1,9 +1,14 @@
 
 # Host a server that broadcasts mouse commands, CPU will connect to receive mouse commands
 
+from __future__ import print_function
 import socket
 import random
 import time
+import subprocess
+import os
+import signal
+
 
 PORT = 27519
 
@@ -14,16 +19,15 @@ s = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
 s.bind(('', PORT))
 s.listen(1)
 
-def get_random_command():
-    r_num = random.randint(0, 4)
-    if r_num == 0:
-        return "L 100"
-    elif r_num == 1:
-        return "R 100"
-    elif r_num == 2:
-        return "U 100"
-    else:
-        return "D 100"
+def execute(cmd):
+    popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+    for stdout_line in iter(popen.stdout.readline, ""):
+        yield stdout_line, popen.pid
+        connection.sendall(stdout_line)
+    popen.stdout.close()
+    return_code = popen.wait()
+    if return_code:
+        raise subprocess.CalledProcessError(return_code, cmd)
 
 while True:
 
@@ -32,15 +36,17 @@ while True:
     connection, client_address = s.accept()
     print("Connection from " + str(client_address))
 
+    pid = -1
     try: 
-        while True:
-            data_send = get_random_command()
-            print("Sending: %s" % data_send)
-            connection.sendall(data_send)
-            time.sleep(1)
+        cmd = ['python3', '/home/mendel/cameramouse/classify.py']
+        for path, pid in execute(cmd):
+            print(path, end="")
+            pid=pid
     except Exception as e:
         print("Socket error: %s" % str(e))
     finally:
+        # Kill process
+        os.kill(pid, signal.SIGTERM)
         # Clean up with connection
         print("Cleaning up connection")
         connection.close()

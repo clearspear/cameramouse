@@ -28,6 +28,7 @@ import os
 import re
 import svgwrite
 import time
+import sys
 
 Category = collections.namedtuple('Category', ['id', 'score'])
 
@@ -53,6 +54,7 @@ def get_output(interpreter):
         if scores[i] > threshold:
             hand_detections.append(boxes[i])
     print(hand_detections)
+    sys.stdout.flush()
 
     return
 
