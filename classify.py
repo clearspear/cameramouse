@@ -31,6 +31,7 @@ import time
 
 Category = collections.namedtuple('Category', ['id', 'score'])
 
+# Draw stuff to the screen
 def generate_svg(size, text_lines):
     dwg = svgwrite.Drawing('', size=size)
     for y, line in enumerate(text_lines, start=1):
@@ -38,6 +39,7 @@ def generate_svg(size, text_lines):
       dwg.add(dwg.text(line, insert=(10, y*20), fill='white', font_size='20'))
     return dwg.tostring()
 
+# Print output to stdout
 def get_output(interpreter):
     threshold = .6
 
@@ -55,7 +57,14 @@ def get_output(interpreter):
     return
 
 def main():
+
+    # Flag to also show video 
+    show_display = False
+
+    # Model path parameter
     model_path = '/home/mendel/handdetection_ssdmobilenetv1.tflite'
+
+    #####
 
     print('Loading {} with {} labels.'.format(model_path, ""))
     interpreter = common.make_interpreter(model_path)
@@ -77,11 +86,15 @@ def main():
       # For larger input image sizes, use the edgetpu.classification.engine for better performance
       results = get_output(interpreter)
       end_time = time.monotonic()
+
+      if show_display:
+          return generate_svg(src_size, "helloooo")
       return
 
     result = gstreamer.run_pipeline(user_callback,
                                     src_size=(640, 480),
-                                    appsink_size=inference_size)
+                                    appsink_size=inference_size,
+                                    show_display=show_display)
 
 if __name__ == '__main__':
     main()

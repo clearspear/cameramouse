@@ -26,7 +26,7 @@ GObject.threads_init()
 Gst.init(None)
 
 class GstPipeline:
-    def __init__(self, pipeline, user_function, src_size):
+    def __init__(self, pipeline, user_function, src_size, show_display):
         self.user_function = user_function
         self.running = False
         self.gstbuffer = None
@@ -36,8 +36,12 @@ class GstPipeline:
         self.condition = threading.Condition()
 
         self.pipeline = Gst.parse_launch(pipeline)
-        self.overlay = None #self.pipeline.get_by_name('overlay')
-        self.overlaysink = None #self.pipeline.get_by_name('overlaysink')
+        if show_display:
+            self.overlay = self.pipeline.get_by_name('overlay')
+            self.overlaysink = self.pipeline.get_by_name('overlaysink')
+        else:
+            self.overlay = None
+            self.overlaysink = None
         appsink = self.pipeline.get_by_name('appsink')
         appsink.connect('new-sample', self.on_new_sample)
 
@@ -47,7 +51,8 @@ class GstPipeline:
         bus.connect('message', self.on_bus_message)
 
         # Set up a full screen window on Coral, no-op otherwise.
-        #self.setup_window()
+        if show_display:
+            self.setup_window()
 
     def run(self):
         # Start inference worker.
@@ -204,19 +209,47 @@ def detectCoralDevBoard():
 def run_pipeline(user_function,
                  src_size,
                  appsink_size,
+                 show_display,
                  videosrc='/dev/video0',
                  videofmt='raw'):
+    if videofmt == 'h264':
+        SRC_CAPS = 'video/x-h264,width={width},height={height},framerate=30/1'
+    elif videofmt == 'jpeg':
+        SRC_CAPS = 'image/jpeg,width={width},height={height},framerate=30/1'
+    else:
+        SRC_CAPS = 'video/x-raw,width={width},height={height},framerate=30/1'
+    if videosrc.startswith('/dev/video'):
+        PIPELINE = 'v4l2src device=%s ! {src_caps}'%videosrc
+    elif videosrc.startswith('http'):
+        PIPELINE = 'souphttpsrc location=%s'%videosrc
+    elif videosrc.startswith('rtsp'):
+        PIPELINE = 'rtspsrc location=%s'%videosrc
+    else:
+        demux =  'avidemux' if videosrc.endswith('avi') else 'qtdemux'
+        PIPELINE = """filesrc location=%s ! %s name=demux  demux.video_0
+                    ! queue ! decodebin  ! videorate
+                    ! videoconvert n-threads=4 ! videoscale n-threads=4
+                    ! {src_caps} ! {leaky_q} """ % (videosrc, demux)
 
-    SRC_CAPS = 'video/x-raw,width={width},height={height},framerate=30/1'
-    PIPELINE = 'v4l2src device=%s ! {src_caps}'%videosrc
-
-    # Coral board
-    scale_caps = None
-    PIPELINE += """ ! decodebin ! glupload ! tee name=t
-        t. ! queue ! glfilterbin filter=glbox name=glbox ! {sink_caps} ! {sink_element}
-    """
-    #    t. ! queue ! glsvgoverlaysink name=overlaysink
-    #"""
+    if detectCoralDevBoard():
+        scale_caps = None
+        PIPELINE += """ ! decodebin ! glupload ! tee name=t
+            t. ! queue ! glfilterbin filter=glbox name=glbox ! {sink_caps} ! {sink_element}
+        """
+        if show_display:
+            PIPELINE += """
+                t. ! queue ! glsvgoverlaysink name=overlaysink
+            """
+    else:
+        scale = min(appsink_size[0] / src_size[0], appsink_size[1] / src_size[1])
+        scale = tuple(int(x * scale) for x in src_size)
+        scale_caps = 'video/x-raw,width={width},height={height}'.format(width=scale[0], height=scale[1])
+        PIPELINE += """ ! tee name=t
+            t. ! {leaky_q} ! videoconvert ! videoscale ! {scale_caps} ! videobox name=box autocrop=true
+               ! {sink_caps} ! {sink_element}
+            t. ! {leaky_q} ! videoconvert
+               ! rsvgoverlay name=overlay ! videoconvert ! ximagesink sync=false
+            """
 
     SINK_ELEMENT = 'appsink name=appsink emit-signals=true max-buffers=1 drop=true'
     SINK_CAPS = 'video/x-raw,format=RGB,width={width},height={height}'
@@ -230,5 +263,5 @@ def run_pipeline(user_function,
 
     print('Gstreamer pipeline:\n', pipeline)
 
-    pipeline = GstPipeline(pipeline, user_function, src_size)
+    pipeline = GstPipeline(pipeline, user_function, src_size, show_display)
     pipeline.run()
