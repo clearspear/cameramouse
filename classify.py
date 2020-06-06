@@ -29,6 +29,8 @@ import re
 import svgwrite
 import time
 import sys
+from PIL import Image
+from gi.repository import Gst
 
 Category = collections.namedtuple('Category', ['id', 'score'])
 
@@ -84,8 +86,8 @@ def generate_svg(size, text_lines):
 
     return dwg.tostring()
 
-# Print output to stdout
-def get_output(interpreter):
+# Print detection output to stdout
+def get_detection_output(interpreter):
     threshold = .6
 
     boxes = common.output_tensor(interpreter, 0)
@@ -102,39 +104,66 @@ def get_output(interpreter):
 
     return hand_detections
 
+# Print classification output to stdout
+def get_classification_output(interpreter):
+    scores = common.output_tensor(interpreter, 0)
+    print(scores)
+    return scores
+
 def main():
 
     # Flag to also show video 
-    show_display = True
+    show_display = False
 
     # Model path parameter
-    model_path = '/home/mendel/handdetection_ssdmobilenetv1.tflite'
+    detection_model_path = '/home/mendel/handdetection_ssdmobilenetv1.tflite'
+    classification_model_path = '/home/mendel/handclassification_mobilenet_v2_1.0_224_quant_edgetpu.tflite'
 
     #####
 
-    print('Loading {} with {} labels.'.format(model_path, ""))
-    interpreter = common.make_interpreter(model_path)
-    interpreter.allocate_tensors()
+    print('Loading {} for hand detection.'.format(detection_model_path))
+    detection_interpreter = common.make_interpreter(detection_model_path)
+    detection_interpreter.allocate_tensors()
+    
+    print('Loading {} for hand classification.'.format(classification_model_path))
+    classification_interpreter = common.make_interpreter(classification_model_path)
+    classification_interpreter.allocate_tensors()
 
-    w, h, _  = common.input_image_size(interpreter)
+    w, h, _  = common.input_image_size(detection_interpreter)
     inference_size = (w, h)
+    print("Inference size {},{}".format(w, h))
+
     # Average fps over last 30 frames.
     fps_counter = common.avg_fps_counter(30)
 
-    print(inference_size)
-
     def user_callback(input_tensor, src_size, inference_box):
-
       nonlocal fps_counter
       start_time = time.monotonic()
-      common.set_input(interpreter, input_tensor)
-      interpreter.invoke()
-      # For larger input image sizes, use the edgetpu.classification.engine for better performance
-      results = get_output(interpreter)
-      end_time = time.monotonic()
 
+      # Run hand detection
+      common.set_input(detection_interpreter, input_tensor)
+      detection_interpreter.invoke()
+      detection_results = get_detection_output(detection_interpreter)
+
+      # Resize image and set as input
+      buf = input_tensor
+      _, map_info = buf.map(Gst.MapFlags.READ)
+      np_input = np.ndarray(shape=(h,w,3),
+                           dtype=np.uint8,
+                           buffer=map_info.data)
+      pil_input = Image.fromarray(np_input)
+      pil_input = pil_input.resize((224,224), Image.NEAREST)
+      np_input = np.asarray(pil_input)
+      common.input_tensor(classification_interpreter)[:, :] = np_input
+
+      # Run hand classification
+      classification_interpreter.invoke()
+      classification_results = get_classification_output(classification_interpreter)
+
+      end_time = time.monotonic()
+      
       if show_display:
-          return generate_svg(src_size, results)
+          return generate_svg(src_size, detection_results)
       return
 
     result = gstreamer.run_pipeline(user_callback,
