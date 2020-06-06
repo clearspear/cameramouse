@@ -38,7 +38,7 @@ def clamp(v, l, r):
     return max(min(v, r), l)
 
 # Draw stuff to the screen
-def generate_svg(size, text_lines):
+def generate_svg(size, detection_results, classification_results):
     font_size = '20'
     red = svgwrite.rgb(255,0,0,'%')
     grey = svgwrite.rgb(15,15,15,'%')
@@ -50,9 +50,9 @@ def generate_svg(size, text_lines):
     x = size[0]
     y = size[1]
 
-    # Draw boxes and text
+    # Draw boxes and text for detection
     box_i = 0
-    for box in text_lines:
+    for box in detection_results:
         top = clamp(int(box[0] * x), 0, x)
         left = clamp(int(box[1] * y), 0, y)
         bottom = clamp(int(box[2] * x), 0, x)
@@ -82,7 +82,25 @@ def generate_svg(size, text_lines):
                                stroke=red,
                                fill='red'))
 
+            # Print out box center to stdout
+            print(x_avg, y_avg)
+            sys.stdout.flush()
+
         box_i += 1
+
+    # Write classification results to screen and stdout
+    classification_threshold = .7
+    if classification_results[0] > classification_threshold:
+        hand_pos = 'fist'
+    elif classification_results[1] > classification_threshold:
+        hand_pos = 'palm'
+    else: 
+        hand_pos = 'unknown'
+    dwg.add(dwg.text("Hand position: " + hand_pos,
+                     insert=(11, 20*(box_i+2)),
+                     fill='white',
+                     font_size=font_size))
+    print(hand_pos)
 
     return dwg.tostring()
 
@@ -99,21 +117,22 @@ def get_detection_output(interpreter):
     for i in range(count):
         if scores[i] > threshold:
             hand_detections.append(boxes[i])
-    print(hand_detections)
-    sys.stdout.flush()
+    #print(hand_detections)
+    #sys.stdout.flush()
 
     return hand_detections
 
 # Print classification output to stdout
 def get_classification_output(interpreter):
     scores = common.output_tensor(interpreter, 0)
-    print(scores)
+    #print(scores)
+    #sys.stdout.flush()
     return scores
 
 def main():
 
     # Flag to also show video 
-    show_display = False
+    show_display = True
 
     # Model path parameter
     detection_model_path = '/home/mendel/handdetection_ssdmobilenetv1.tflite'
@@ -163,7 +182,7 @@ def main():
       end_time = time.monotonic()
       
       if show_display:
-          return generate_svg(src_size, detection_results)
+          return generate_svg(src_size, detection_results, classification_results)
       return
 
     result = gstreamer.run_pipeline(user_callback,
