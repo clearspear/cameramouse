@@ -50,6 +50,8 @@ def generate_svg(size, detection_results, classification_results):
     x = size[0]
     y = size[1]
 
+    command = ""
+
     # Draw boxes and text for detection
     box_i = 0
     for box in detection_results:
@@ -83,8 +85,7 @@ def generate_svg(size, detection_results, classification_results):
                                fill='red'))
 
             # Print out box center to stdout
-            print(x_avg, y_avg)
-            sys.stdout.flush()
+            command += str(x_avg) + " " + str(y_avg)
 
         box_i += 1
 
@@ -100,7 +101,11 @@ def generate_svg(size, detection_results, classification_results):
                      insert=(11, 20*(box_i+2)),
                      fill='white',
                      font_size=font_size))
-    print(hand_pos)
+    command += " " + hand_pos
+
+    # Print command to stdout
+    print(command)
+    sys.stdout.flush()
 
     return dwg.tostring()
 
