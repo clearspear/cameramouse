@@ -55,10 +55,14 @@ def generate_svg(size, detection_results, classification_results):
     # Draw boxes and text for detection
     box_i = 0
     for box in detection_results:
-        top = clamp(int(box[0] * x), 0, x)
-        left = clamp(int(box[1] * y), 0, y)
-        bottom = clamp(int(box[2] * x), 0, x)
-        right = clamp(int(box[3] * y), 0, y)
+
+        # Original screen size is 640x480... 
+        # But this turns into '640x640' with black outlines
+
+        top = clamp(int(box[0] * x), 0, x) - 50
+        left = clamp(int(box[1] * x), 0, x)
+        bottom = clamp(int(box[2] * x), 0, x) - 50
+        right = clamp(int(box[3] * x), 0, x)
 
         # Write text
         dwg.add(dwg.text(((top, left), (bottom, right)), 
